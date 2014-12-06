@@ -30,19 +30,6 @@
     }
   },
 
-  "Mappings" : {
-    "AWSRegionCodes" : {
-      "us-east-1"      : { "Code" : "ue1" },
-      "us-west-1"      : { "Code" : "uw1" },
-      "us-west-2"      : { "Code" : "uw2" },
-      "eu-west-1"      : { "Code" : "ew1" },
-      "sa-east-1"      : { "Code" : "se1" },
-      "ap-southeast-1" : { "Code" : "ase1" },
-      "ap-southeast-2" : { "Code" : "ase2" },
-      "ap-northeast-1" : { "Code" : "ane1" }
-    }
-  },
-
   "Resources" : {
     "ElasticLoadBalancer" : {
       "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
