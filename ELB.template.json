@@ -1,0 +1,93 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Create an ELB. Add DNS record for the same.",
+
+  "Parameters" : {
+    "ELBName" : {
+      "Description" : "Name for the loadbalancer",
+      "Type" : "String"
+    },
+    "ELBDNSName" : {
+      "Description" : "DNS name for the ELB to be added in Route53",
+      "Type" : "String"
+    },
+    "ELBSecurityGroups" : {
+      "Description" : "Existing Security group for the load balancer",
+      "Type" : "AWS::EC2::SecurityGroup::Id",
+      "Default" : "sg-e83ad38c"
+    },
+    "ELBScheme" : {
+      "Description" : "For load balancers attached to an Amazon VPC, this parameter can be used to specify the type of load balancer to use. Specify internal to create an internal load balancer with a DNS name that resolves to private IP addresses or internet-facing to create a load balancer with a publicly resolvable DNS name, which resolves to public IP addresses. If you specify internal, you must specify subnets to associate with the load balancer, not Availability Zones.",
+      "Type" : "String",
+      "Default" : "internet-facing"
+    },
+    "HostedZone" : {
+      "Type" : "String",
+      "Description" : "The DNS name of an existing Amazon Route 53 hosted zone",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+      "ConstraintDescription" : "must be a valid DNS zone name."
+    }
+  },
+
+  "Mappings" : {
+    "AWSRegionCodes" : {
+      "us-east-1"      : { "Code" : "ue1" },
+      "us-west-1"      : { "Code" : "uw1" },
+      "us-west-2"      : { "Code" : "uw2" },
+      "eu-west-1"      : { "Code" : "ew1" },
+      "sa-east-1"      : { "Code" : "se1" },
+      "ap-southeast-1" : { "Code" : "ase1" },
+      "ap-southeast-2" : { "Code" : "ase2" },
+      "ap-northeast-1" : { "Code" : "ane1" }
+    }
+  },
+
+  "Resources" : {
+    "ElasticLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "ConnectionDrainingPolicy" : {
+          "Enabled" : "true",
+          "Timeout" : "300"
+        },
+      "LoadBalancerName" : { "Ref" : "ELBName" },
+      "SecurityGroups" : [ { "Ref" : "ELBSecurityGroups" } ],
+        "Subnets" : [ "subnet-9808d1c1", "subnet-7a6b9051" ],
+        "Scheme" : { "Ref" : "ELBScheme" },
+        "CrossZone" : "true",
+        "Listeners" : [ {
+          "LoadBalancerPort" : "80",
+          "InstancePort" : "8080",
+          "Protocol" : "HTTP"
+        } ],
+        "HealthCheck" : {
+          "Target" : "TCP:8080",
+          "HealthyThreshold" : "5",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "5",
+          "Timeout" : "3"
+        },
+        "Tags" : [ { "Key" : "Name", "Value" : { "Ref" : "ELBName" } } ]
+      }
+    },
+    "Route53" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ] ] },
+        "Comment" : "CNAME redirect for ELB",
+        "Name" : { "Fn::Join" : [ "", [ { "Ref" : "ELBDNSName" }, ".", {"Ref" : "HostedZone"}, "."]]},
+        "Type" : "CNAME",
+        "TTL" : "300",
+        "ResourceRecords" : [ { "Fn::GetAtt" : ["ElasticLoadBalancer","CanonicalHostedZoneName"] } ]
+      }
+    }
+  },
+
+  "Outputs" : {
+    "URL" : {
+      "Description" : "RecordSet",
+      "Value" :  { "Fn::Join" : [ "", [ "http://", { "Ref" : "Route53" }]]}
+    }
+  }
+}

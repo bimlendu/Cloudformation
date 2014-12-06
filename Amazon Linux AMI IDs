@@ -1,0 +1,15 @@
+Amazon Linux AMI IDs
+Amazon Linux AMI 2014.09.1 was released on 2014-10-14.
+
+
+Region           HVM EBS-Backed 64-bit         PV EBS-Backed 64-bit          HVM (Graphics) EBS-Backed 64-bit
+us-east-1         ami-b66ed3de                  ami-246ed34c                  ami-f8942f90
+us-west-2         ami-b5a7ea85                  ami-55a7ea65                  ami-51135c61
+us-west-1         ami-4b6f650e                  ami-9b6e64de                  ami-2f786d6a
+eu-west-1         ami-6e7bd919                  ami-9c7ad8eb                  ami-94e946e3
+ap-southeast-1    ami-ac5c7afe                  ami-ba5c7ae8                  ami-dc75548e
+ap-northeast-1    ami-4985b048                  ami-2385b022                  ami-cda89ecc
+ap-southeast-2    ami-63f79559                  ami-71f7954b                  ami-cbaec3f1
+sa-east-1         ami-8737829a                  ami-9137828c                  NOT_SUPPORTED
+cn-north-1        ami-ce46d4f7                  ami-c846d4f1                  NOT_SUPPORTED
+eu-central-1      ami-b43503a9                  ami-a03503bd                  NOT_SUPPORTED
