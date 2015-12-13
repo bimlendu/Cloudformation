@@ -1,73 +1,131 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
 
-  "Description" : "Creates an autoscaling group. Adds DNS records for the instances.",
+  "Description" : "Creates an autoscaling group.",
 
   "Parameters" : {
     "InstanceType" : {
       "Description" : "AppServer EC2 instance type",
       "Type" : "String",
       "Default" : "t2.micro",
-      "AllowedValues" : [ "t1.micro", "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "g2.2xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"]
+      "AllowedValues" : [ "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "g2.2xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge" ]
 ,
-      "ConstraintDescription" : "must be a valid EC2 instance type."
+      "ConstraintDescription" : "Must be a valid EC2 instance type."
     },
-
     "KeyName" : {
       "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
       "Type" : "AWS::EC2::KeyPair::KeyName",
       "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
     },
-
     "InstanceSecurityGroup" : {
       "Description" : "Security Group for the instances.",
       "Type" : "AWS::EC2::SecurityGroup::Id",
-      "Default": "sg-e83ad38c"
+      "Default": "sg-******"
     },
-    "HostedZone" : {
+    "ServiceELB" : {
+      "Description" : "LoadBalancer to attach the instances to.",
+      "Type" : "String"
+    },
+    "InstanceAvailabilityZones" : {
+      "Description" : "A list of avilability zones in which instances will be launched. ",
+      "Type" : "CommaDelimitedList",
+      "Default" : "us-east-1b,us-east-1d"
+    },
+    "ASGDesiredCapacity" : {
+      "Description" : "The desired capacity for the Auto Scaling group",
+      "Default" : "2",
+      "Type" : "Number"
+    },
+    "ASGHealthCheckGracePeriod" : {
+      "Description" : "The length of time in seconds after a new EC2 instance comes into service that Auto Scaling starts checking its health.",
+      "Default" : "600",
+      "Type" : "Number"
+    },
+    "ASGHealthCheckType": {
+      "Description" : "The service you want the health status from, Amazon EC2 or Elastic Load Balancer. Valid values are EC2 or ELB.",
+      "Default" : "ELB",
       "Type" : "String",
-      "Description" : "The DNS name of an existing Amazon Route 53 hosted zone, under which instance DNS records will be created.",
-      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
-      "ConstraintDescription" : "must be a valid DNS zone name."
+      "AllowedValues" : [ "ELB", "EC2" ]
+    },
+    "ASGMinSize" : {
+      "Description" : "The minimum size of the Auto Scaling group.",
+      "Type" : "Number",
+      "Default" : "2"
+    },
+    "ASGMaxSize" : {
+      "Description" : "The maximum size of the Auto Scaling group.",
+      "Type" : "Number",
+      "Default" : "10"
+    },
+    "InstanceSubnets" : {
+      "Description" : "A list of subnet identifiers of Amazon Virtual Private Cloud (Amazon VPCs). The subnets that you specify for VPCZoneIdentifier must reside in the Availability Zones that you specify with the AvailabilityZones parameter.",
+      "Default" : "subnet-******,subnet-******",
+      "Type" : "List<AWS::EC2::Subnet::Id>"
+    },
+    "InstanceAMI" : {
+      "Description" : "AMI to use for instances.",
+      "Default" : "ami-146e2a7c",
+      "Type" : "String"
+    },
+    "InstanceIAMRole" : {
+      "Description" : "IAM Role to be attached to the instances.",
+      "Default" : "CfnRole",
+      "Type" : "String"
     },
     "Environment" : {
-      "Description" : "Server environment. Dev/Prod/Staging etc. Will be used in insatance DNS records.",
-      "Type" : "String",
-      "Default" : "dev"
+      "Description" : "Instance Environment.",
+      "Default" : "uat2",
+      "Type" : "String"
+    },
+    "Role" : {
+      "Description" : "Instance Role.",
+      "Default" : "webcontainer-notification",
+      "Type" : "String"
     }
   },
 
   "Mappings" : {
-    "AWSRegionCodes" : {
-      "us-east-1"      : { "Code" : "ue1" },
-      "us-west-1"      : { "Code" : "uw1" },
-      "us-west-2"      : { "Code" : "uw2" },
-      "eu-west-1"      : { "Code" : "ew1" },
-      "sa-east-1"      : { "Code" : "se1" },
-      "ap-southeast-1" : { "Code" : "ase1" },
-      "ap-southeast-2" : { "Code" : "ase2" },
-      "ap-northeast-1" : { "Code" : "ane1" }
-    }
   },
 
   "Resources" : {
     "AppServerGroup" : {
       "Type" : "AWS::AutoScaling::AutoScalingGroup",
       "Properties" : {
-        "AvailabilityZones" : [ "us-east-1b", "us-east-1d" ],
+        "AvailabilityZones" : { "Ref" : "InstanceAvailabilityZones" },
+        "DesiredCapacity" : { "Ref" : "ASGDesiredCapacity" },
+        "HealthCheckGracePeriod" : { "Ref" : "ASGHealthCheckGracePeriod" },
+        "HealthCheckType" : { "Ref" : "ASGHealthCheckType" },
         "LaunchConfigurationName" : { "Ref" : "LaunchConfig" },
-        "MinSize" : "2",
-        "MaxSize" : "6",
-        "LoadBalancerNames" : [ "testing005" ]
+        "MinSize" : { "Ref" : "ASGMinSize" },
+        "MaxSize" : { "Ref" : "ASGMaxSize" },
+        "LoadBalancerNames" : [ { "Ref" : "ServiceELB" } ],
+        "VPCZoneIdentifier" : { "Ref" : "InstanceSubnets" },
+        "Tags" : [ { "Key" : "Role", "Value" : { "Ref" : "Role" }, "PropagateAtLaunch" : "true"} ,
+                   { "Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" } ,
+                   { "Key" : "CreatedBy", "Value" : "CloudFormation", "PropagateAtLaunch" : "true" },
+                   { "Key" : "Name", "Value" : { "Fn::Join" : [ "", [ { "Ref" : "Role" }, "-", { "Ref" : "AWS::Region" }, "-", { "Ref" : "Environment" }]]}, "PropagateAtLaunch" : "false" }
+                  ],
+        "NotificationConfiguration" : { "TopicARN" : "arn:aws:sns:us-east-1:725021207524:CloudformationNotifications",
+                                        "NotificationTypes" : [ "autoscaling:EC2_INSTANCE_LAUNCH",
+                                                                "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+                                                                "autoscaling:EC2_INSTANCE_TERMINATE",
+                                                                "autoscaling:EC2_INSTANCE_TERMINATE_ERROR" ]
+                                      },
+        "MetricsCollection": [
+         {
+            "Granularity": "1Minute"
+         }
+        ]
       },
       "CreationPolicy" : {
         "ResourceSignal" : {
-          "Timeout" : "PT15M"
+          "Timeout" : "PT30M",
+          "Count"   : "1"
         }
       },
       "UpdatePolicy": {
         "AutoScalingRollingUpdate": {
-          "MinInstancesInService": "1",
+          "MinInstancesInService": "2",
           "MaxBatchSize": "1",
           "PauseTime" : "PT15M",
           "WaitOnResourceSignals": "true"
@@ -75,34 +133,198 @@
       }
     },
 
-    "LaunchConfig" : {
-      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+    "LaunchConfig": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
       "Metadata" : {
-        "Comment" : "Bootstrap Chef"
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "bootstrap" : [ "Install_Cloudformation_Tools", "Verify_Instance_Health_From_ELB" ]
+          },
+
+          "Install_Cloudformation_Tools" : {
+            "files" : {
+              "/etc/cfn/cfn-hup.conf" : {
+                "content" : { "Fn::Join" : ["", [
+                  "[main]\n",
+                  "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                  "region=", { "Ref" : "AWS::Region" }, "\n"
+                ]]},
+                "mode"    : "000400",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                "content": { "Fn::Join" : ["", [
+                  "[cfn-auto-reloader-hook]\n",
+                  "triggers=post.update\n",
+                  "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
+                  "action=/opt/aws/bin/cfn-init -v ",
+                  "         --stack ", { "Ref" : "AWS::StackName" },
+                  "         --resource LaunchConfig ",
+                  "         --configsets bootstrap ",
+                  "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                  "runas=root\n"
+                ]]}
+              }
+            },
+
+            "services" : {
+              "sysvinit" : {
+                "cfn-hup" : { "enabled" : "true", "ensureRunning" : "true",
+                              "files" : ["/etc/cfn/cfn-hup.conf", "/etc/cfn/hooks.d/cfn-auto-reloader.conf"]}
+              }
+            }
+          },
+
+          "Verify_Instance_Health_From_ELB" : {
+            "commands" : {
+              "ELBHealthCheck" : {
+                "command" : { "Fn::Join" : ["", [
+                  "until [ \"$state\" == \"\\\"InService\\\"\" ]; do ",
+                  "  state=$(aws --region ", { "Ref" : "AWS::Region" }, " elb describe-instance-health ",
+                  "              --load-balancer-name ", { "Ref" : "ServiceELB" },
+                  "              --instances $(curl -s http://169.254.169.254/latest/meta-data/instance-id) ",
+                  "              --query InstanceStates[0].State); ",
+                  "  sleep 10; ",
+                  "done"
+                ]]}
+              }
+            }
+          }
+        }
       },
-      "Properties" : {
-        "ImageId" : "ami-b66ed3de",
-        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
-        "InstanceType" : { "Ref" : "InstanceType" },
-        "KeyName" : { "Ref" : "KeyName" },
+
+      "Properties": {
+        "KeyName": { "Ref": "KeyName" },
+        "ImageId": { "Ref" : "InstanceAMI" },
+        "IamInstanceProfile": { "Ref" : "InstanceIAMRole" },
+        "InstanceType": { "Ref": "InstanceType" },
+        "SecurityGroups": [ { "Ref": "InstanceSecurityGroup" } ],
         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
              "#!/bin/bash -xe\n",
-             "yum update -y aws-cfn-bootstrap\n",
+             "ROLE=", { "Ref" : "Role" }, "\n",
+             "ENV=", { "Ref" : "Environment" }, "\n",
+             "yum update -y \n",
+             "yum install -y aws-cfn-bootstrap\n",
+             "echo \"$(/sbin/ifconfig eth0 | grep \"inet addr:\" | cut -d: -f2 | cut -d\" \" -f1) $(hostname)\" >> /etc/hosts\n",
+             "true && curl -L https://www.opscode.com/chef/install.sh | bash -s -- -v 12.5.1\n",
+             "mkdir /etc/chef\n",
+             "mkdir /var/log/chef\n",
+             "aws s3 cp s3://bootstrap/bootstrap.tar.gz /tmp/bootstrap.tar.gz\n",
+             "tar -zxf /tmp/bootstrap.tar.gz -C /tmp\n",
+             "cd /tmp/bootstrap\n",
+             "cat > roles/$ROLE.json << EOL\n",
+             "{\n",
+             "  \"name\": \"$ROLE\",\n",
+             "  \"json_class\": \"Chef::Role\",\n",
+             "  \"chef_type\": \"role\",\n",
+             "  \"run_list\": [\n",
+             "    \"recipe[ec2-ohai]\",\n",
+             "    \"recipe[hostname]\"\n",
+             "    ]\n",
+             "}\n",
+             "EOL\n",
+             "cat > environments/$ENV.json << EOL\n",
+             "{\n",
+             "  \"name\": \"$ENV\",\n",
+             "  \"json_class\": \"Chef::Environment\",\n",
+             "  \"chef_type\": \"environment\"\n",
+             "}\n",
+             "EOL\n",
+             "chef-client --local-mode -E ", { "Ref" : "Environment" }, " -r 'role[", { "Ref" : "Role" }, "]'\n",
+             "aws s3 cp s3://bootstrap/dev-validator.pem /etc/chef/dev-validator.pem\n",
+             "aws s3 cp s3://bootstrap/client.rb /etc/chef/client.rb\n",
+             "chef-client -R -d -E ", { "Ref" : "Environment" }, " -r 'role[", { "Ref" : "Role" }, "]'\n",
 
              "/opt/aws/bin/cfn-init -v ",
              "         --stack ", { "Ref" : "AWS::StackName" },
              "         --resource LaunchConfig ",
+             "         --role ", { "Ref" : "InstanceIAMRole" },
+             "         --configsets bootstrap ",
              "         --region ", { "Ref" : "AWS::Region" }, "\n",
 
              "/opt/aws/bin/cfn-signal -e $? ",
              "         --stack ", { "Ref" : "AWS::StackName" },
-             "         --resource WebServerGroup ",
+             "         --resource AppServerGroup ",
              "         --region ", { "Ref" : "AWS::Region" }, "\n"
         ]]}}
+      }
+    },
+
+    "AppServerScaleUpPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "AppServerGroup" },
+        "Cooldown" : "60",
+        "ScalingAdjustment" : "1"
+      }
+    },
+    "AppServerScaleDownPolicy" : {
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "AppServerGroup" },
+        "Cooldown" : "60",
+        "ScalingAdjustment" : "-1"
+      }
+    },
+
+    "CPUAlarmHigh": {
+     "Type": "AWS::CloudWatch::Alarm",
+     "Properties": {
+        "AlarmDescription": "Scale-up if CPU > 90% for 10 minutes",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Statistic": "Average",
+        "Period": "300",
+        "EvaluationPeriods": "2",
+        "Threshold": "90",
+        "AlarmActions": [ { "Ref": "AppServerScaleUpPolicy" } ],
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": { "Ref": "AppServerGroup" }
+          }
+        ],
+        "ComparisonOperator": "GreaterThanThreshold"
+      }
+    },
+    "CPUAlarmLow": {
+     "Type": "AWS::CloudWatch::Alarm",
+     "Properties": {
+        "AlarmDescription": "Scale-down if CPU < 50% for 10 minutes",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Statistic": "Average",
+        "Period": "300",
+        "EvaluationPeriods": "2",
+        "Threshold": "50",
+        "AlarmActions": [ { "Ref": "AppServerScaleDownPolicy" } ],
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": { "Ref": "AppServerGroup" }
+          }
+        ],
+        "ComparisonOperator": "LessThanThreshold"
       }
     }
   },
 
   "Outputs" : {
+    "AutoScalingGroupName" : {
+      "Value" : { "Ref": "AppServerGroup" },
+      "Description" : "AutoScaling Group Name."
+    },
+    "ScaleUpAlarm" : {
+      "Value" : { "Ref" : "CPUAlarmHigh" },
+      "Description" : "Scale Up Alarm"
+    },
+    "ScaleDownAlarm" : {
+      "Value" : { "Ref" : "CPUAlarmLow" },
+      "Description" : "Scale Down Alarm"
+    }
   }
 }

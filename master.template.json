@@ -1,0 +1,242 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Build a Application Cluster with an ELB and an Autoscaling Group Associated with it.",
+
+  "Parameters" : {
+    "TemplateBucket" : {
+      "Description" : "S3 bucket where templates are stored.",
+      "Type" : "String",
+      "Default" : "bootstrap"
+    },
+    "ELBLoadBalancerName" : {
+      "Description" : "Name for the loadbalancer. LoadBalancer name cannot contain characters that are not letters, or digits or the dash.",
+      "Type" : "String",
+      "Default" : "testing001"
+    },
+    "ELBSecurityGroups" : {
+      "Description" : "Existing Security group for the load balancer. Value of property SecurityGroupIds must be of type List of String.",
+      "Type" : "AWS::EC2::SecurityGroup::Id",
+      "Default" : "sg-******"
+    },
+    "ELBSubnets" : {
+      "Description" : "Subnet list for the load balancer. Should be public for internet-facing, and private for internal subnet.",
+      "Type" : "String",
+      "Default" : "subnet-******,subnet-******"
+    },
+    "ELBScheme" : {
+      "Description" : "LoadBalancer scheme. Internal or internet-facing.",
+      "Type" : "String",
+      "Default" : "internet-facing",
+      "AllowedValues" : [ "internet-facing", "internal" ]
+    },
+    "ELBListenersLoadBalancerPort" : {
+      "Description" : "LoadBalancer external port.",
+      "Default" : "80",
+      "Type" : "Number"
+    },
+    "ELBListenersInstancePort" : {
+      "Description" : "The TCP port on which the instance server is listening.",
+      "Default" : "80",
+      "Type" : "Number"
+    },
+    "ELBListenersProtocol" : {
+      "Description" : "Specifies the protocol to use for routing traffic to back-end instances—HTTP, HTTPS, TCP, or SSL.",
+      "Type" : "String",
+      "Default" : "HTTP",
+      "AllowedValues" : [ "HTTP", "HTTPS", "TCP", "SSL" ],
+      "ConstraintDescription" : "Must be HTTP, HTTPS, TCP, or SSL. "
+    },
+    "ELBHealthCheckTarget" : {
+      "Description" : "Specifies the instance's protocol and port to check. The protocol can be TCP, HTTP, HTTPS, or SSL. The range of valid ports is 1 through 65535. For TCP and SSL, you specify a port pair. For example, you can specify TCP:5000 or SSL:5000. For HTTP or HTTPS, you specify a port and a path to ping (HTTP or HTTPS:port/PathToPing). For example, you can specify HTTP:80/health .",
+      "Default" : "TCP:80",
+      "Type" : "String"
+    },
+    "ELBHealthCheckHealthyThreshold" : {
+      "Description" : "The number of consecutive health probe successes required before moving the instance to the Healthy state.",
+      "Default" : "5",
+      "Type" : "Number"
+    },
+    "ELBHealthCheckUnhealthyThreshold" : {
+      "Description" : "The number of consecutive health probe failures required before moving the instance to the Unhealthy state.",
+      "Type" : "String",
+      "Default" : "2"
+    },
+    "ELBHealthCheckInterval" : {
+      "Description" : "The approximate interval, in seconds, between health checks of an individual instance.",
+      "Type" : "Number",
+      "Default" : "60"
+    },
+    "ELBHealthCheckTimeout" : {
+      "Description" : "The amount of time, in seconds, during which no response means a failed health probe. This value must be less than the value for Interval.",
+      "Default" : "30",
+      "Type" : "Number"
+    },
+    "ELBR53DNSName" : {
+      "Description" : "DNS name for the ELB to be added in Route53. The final end endpoint for the ELB will be <ELBDNSName>.<AWS-Region>.<Environment>.<ELBHostedZone> .",
+      "Type" : "String",
+      "Default" : "notification"
+    },
+    "ELBR53HostedZone" : {
+      "Type" : "String",
+      "Description" : "The DNS name of an existing Amazon Route 53 hosted zone. DNS record for the LoadBalancer will be added in this zone.",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+      "ConstraintDescription" : "Must be a valid DNS zone name.",
+      "Default" : "test.com"
+    },
+    "InstanceType" : {
+      "Description" : "AppServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "g2.2xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge" ]
+,
+      "ConstraintDescription" : "Must be a valid EC2 instance type."
+    },
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type" : "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+    "InstanceSecurityGroup" : {
+      "Description" : "Security Group for the instances.",
+      "Type" : "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-******"
+    },
+    "ServiceELB" : {
+      "Description" : "LoadBalancer to attach the instances to.",
+      "Type" : "String"
+    },
+    "InstanceAvailabilityZones" : {
+      "Description" : "A list of avilability zones in which instances will be launched. ",
+      "Type" : "String",
+      "Default" : "us-east-1a,us-east-1b"
+    },
+    "ASGDesiredCapacity" : {
+      "Description" : "The desired capacity for the Auto Scaling group",
+      "Default" : "1",
+      "Type" : "Number"
+    },
+    "ASGHealthCheckGracePeriod" : {
+      "Description" : "The length of time in seconds after a new EC2 instance comes into service that Auto Scaling starts checking its health.",
+      "Default" : "600",
+      "Type" : "Number"
+    },
+    "ASGHealthCheckType": {
+      "Description" : "The service you want the health status from, Amazon EC2 or Elastic Load Balancer. Valid values are EC2 or ELB.",
+      "Default" : "ELB",
+      "Type" : "String",
+      "AllowedValues" : [ "ELB", "EC2" ]
+    },
+    "ASGMinSize" : {
+      "Description" : "The minimum size of the Auto Scaling group.",
+      "Type" : "Number",
+      "Default" : "1"
+    },
+    "ASGMaxSize" : {
+      "Description" : "The maximum size of the Auto Scaling group.",
+      "Type" : "Number",
+      "Default" : "2"
+    },
+    "InstanceSubnets" : {
+      "Description" : "A list of subnet identifiers of Amazon Virtual Private Cloud (Amazon VPCs). The subnets that you specify for VPCZoneIdentifier must reside in the Availability Zones that you specify with the AvailabilityZones parameter.",
+      "Default" : "subnet-******,subnet-******",
+      "Type" : "String"
+    },
+    "InstanceAMI" : {
+      "Description" : "AMI to use for instances.",
+      "Default" : "ami-146e2a7c",
+      "Type" : "String"
+    },
+    "InstanceIAMRole" : {
+      "Description" : "IAM Role to be attached to the instances.",
+      "Default" : "bootstrap",
+      "Type" : "String"
+    },
+    "Environment" : {
+      "Description" : "Instance Environment.",
+      "Default" : "env",
+      "Type" : "String"
+    },
+    "Role" : {
+      "Description" : "Instance Role.",
+      "Default" : "service-stack",
+      "Type" : "String"
+    }
+  },
+
+  "Mappings" : {
+  },
+
+  "Resources" : {
+    "LoadBalancer" : {
+      "Type" : "AWS::CloudFormation::Stack",
+      "Metadata" : {
+        "Comment" : "Elastic LoadBalancer, with DNS record added in route53."
+      },
+      "Properties" : {
+        "TemplateURL" : { "Fn::Join" : ["/", [ "https://s3.amazonaws.com", { "Ref" : "TemplateBucket" }, "cloudformation/templates", "ELB.template.json" ]]},
+        "Parameters" : {
+          "ELBLoadBalancerName" : { "Ref" : "ELBLoadBalancerName" },
+          "ELBSecurityGroups" : { "Ref" : "ELBSecurityGroups" },
+          "ELBSubnets" : { "Ref" : "ELBSubnets" },
+          "ELBScheme" : { "Ref" : "ELBScheme" },
+          "ELBListenersLoadBalancerPort" : { "Ref" : "ELBListenersLoadBalancerPort" },
+          "ELBListenersInstancePort" : { "Ref" : "ELBListenersInstancePort" },
+          "ELBListenersProtocol" : { "Ref" : "ELBListenersProtocol" },
+          "ELBHealthCheckTarget" : { "Ref" : "ELBHealthCheckTarget" },
+          "ELBHealthCheckHealthyThreshold" : { "Ref" : "ELBHealthCheckHealthyThreshold" },
+          "ELBHealthCheckUnhealthyThreshold" : { "Ref" : "ELBHealthCheckUnhealthyThreshold" },
+          "ELBHealthCheckInterval" : { "Ref" : "ELBHealthCheckInterval" },
+          "ELBHealthCheckTimeout" : { "Ref" : "ELBHealthCheckTimeout" },
+          "Environment" : { "Ref" : "Environment" },
+          "Role" : { "Ref" : "Role" },
+          "ELBR53DNSName" : { "Ref" : "ELBR53DNSName" },
+          "ELBR53HostedZone" : { "Ref" : "ELBR53HostedZone" }
+        }
+      }
+    },
+
+    "ApplicationAutoScalingGroup" : {
+      "Type" : "AWS::CloudFormation::Stack",
+      "Metadata" : {
+        "Comment" : "Application Autoscaling Group."
+      },
+      "DependsOn" : "LoadBalancer",
+      "Properties" : {
+        "TemplateURL" : { "Fn::Join" : ["/", [ "https://s3.amazonaws.com", { "Ref" : "TemplateBucket" }, "cloudformation/templates", "AutoScalingGroup.template.json" ]]},
+        "Parameters" : {
+          "InstanceType" : { "Ref" : "InstanceType" },
+          "InstanceSecurityGroup" : { "Ref" : "InstanceSecurityGroup" },
+          "KeyName" : { "Ref" : "KeyName" },
+          "Role" : { "Ref" : "Role" },
+          "Environment" : { "Ref" : "Environment" },
+          "ServiceELB" : { "Fn::GetAtt" : [ "LoadBalancer", "Outputs.LoadBalancerName" ] },
+          "InstanceAvailabilityZones" : { "Ref" : "InstanceAvailabilityZones" },
+          "ASGDesiredCapacity" : { "Ref" : "ASGDesiredCapacity" },
+          "ASGHealthCheckGracePeriod" : { "Ref" : "ASGHealthCheckGracePeriod" },
+          "ASGHealthCheckType": { "Ref" : "ASGHealthCheckType" },
+          "ASGMinSize" : { "Ref" : "ASGMinSize" },
+          "ASGMaxSize" : { "Ref" : "ASGMaxSize" },
+          "InstanceSubnets" : { "Ref" : "InstanceSubnets" },
+          "InstanceAMI" : { "Ref" : "InstanceAMI" },
+          "InstanceIAMRole" : { "Ref" : "InstanceIAMRole" }
+        }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "LoadBalancerName" : {
+      "Value" : { "Fn::GetAtt" : [ "LoadBalancer", "Outputs.LoadBalancerName" ] },
+      "Description" : "Name of the created LoadBalancer."
+    },
+    "LoadBalancerURL" : {
+      "Value" : { "Fn::GetAtt" : [ "LoadBalancer", "Outputs.LoadBalancerURL" ] },
+      "Description" : "URL for the created LoadBalancer."
+    },
+    "LoadBalancerDNSName" : {
+      "Value" : { "Fn::GetAtt" : [ "LoadBalancer", "Outputs.LoadBalancerDNSName" ] },
+      "Description" : "DNS name of the created LoadBalancer."
+    }
+  }
+}
